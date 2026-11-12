@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crescent Load &amp; Delivery Check</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Crescent Check">
+<meta name="theme-color" content="#0a72e0">
+<style>
+:root{--bg:#f3f6fa;--card:#fff;--ink:#14202c;--mut:#5b6878;--line:#d6dee8;--acc:#0a72e0;--ok:#1f7a4d;--oks:#e0f2e8;--warn:#8a5a00;--warns:#fdf1d6;--bad:#c2101b;--bads:#fde4e5;--red:#e30613}
+@media (prefers-color-scheme:dark){:root{--bg:#10151b;--card:#18202a;--ink:#e8eef5;--mut:#9aa8b8;--line:#2c3744;--acc:#4da3ff;--ok:#5cc58c;--oks:#14301f;--warn:#e7b04f;--warns:#33270f;--bad:#ff6b73;--bads:#3a1517}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--card);border-top:4px solid var(--red);border-bottom:1px solid var(--line);padding:10px 14px;position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0}
+header .sub{font-size:13px;color:var(--mut)}
+main{padding:12px;max-width:760px;margin:0 auto;display:grid;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+h2{font-size:16px;margin:0 0 8px}
+button,.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:12px 14px;cursor:pointer;min-height:46px}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.okb{background:var(--ok);border-color:var(--ok);color:#fff}
+button.badb{color:var(--bad)}
+button.sm{padding:7px 10px;min-height:36px;font-size:14px}
+button:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1 1 auto}
+input[type=text],textarea{font:inherit;width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;flex:1}
+.seg button.on{background:var(--acc);color:#fff}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.stats{display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.pill{border-radius:20px;padding:3px 9px;background:var(--line);font-weight:600;font-size:12.5px;white-space:nowrap}
+.pill.ok{background:var(--oks);color:var(--ok)}.pill.warn{background:var(--warns);color:var(--warn)}.pill.bad{background:var(--bads);color:var(--bad)}
+.el{font-weight:700;margin:14px 0 6px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.it{border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:6px;background:var(--card)}
+.it.ok{border-left:5px solid var(--ok)}.it.bad{border-left:5px solid var(--bad)}.it.warn{border-left:5px solid var(--warn)}
+.it .top{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.it .nm{font-weight:600}.it .sz{font-size:13px;color:var(--mut)}
+.it .code{font:12px ui-monospace,Menlo,monospace;color:var(--mut)}
+.it .act{margin-top:8px;display:grid;gap:8px}
+.it img{max-width:140px;border-radius:6px;display:block}
+.msg{padding:10px 12px;border-radius:9px;font-weight:600}
+.msg.ok{background:var(--oks);color:var(--ok)}.msg.bad{background:var(--bads);color:var(--bad)}.msg.warn{background:var(--warns);color:var(--warn)}
+#scan{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column}
+#scan video{flex:1;min-height:0;width:100%;object-fit:cover}
+#scan .ov{position:absolute;left:0;right:0;top:0;padding:12px;color:#fff;font-weight:700;text-shadow:0 1px 3px #000}
+#scan .fb{position:absolute;left:12px;right:12px;bottom:84px}
+#scan .ft{padding:12px;background:#000}
+#scan .ft button{width:100%}
+.small{font-size:13px;color:var(--mut)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>Crescent Load &amp; Delivery Check</h1><div class="sub" id="hsub">v0.3 test · no job loaded</div></header>
+<main id="app"></main>
+
+<div id="scan">
+  <div class="ov" id="scanTop">Point the camera at a label QR</div>
+  <video id="vid" playsinline muted></video>
+  <div class="fb"><div class="msg" id="scanMsg" hidden></div></div>
+  <div class="ft"><button id="scanClose">Done scanning</button></div>
+</div>
+<canvas id="cv" hidden></canvas>
+<input type="file" id="jobFile" accept=".txt,.json,text/plain,application/json" hidden>
+<input type="file" id="shot" accept="image/*" capture="environment" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" onerror="window.__noJsQR=true"></script>
+<script>
+"use strict";
+var offlineReady=false;
+var KEY='crescent-check-v1', S=null, filt='all', openId=null, shotFor=null, lastScan={code:'',t:0}, stream=null, scanning=false;
+var $=function(q){return document.querySelector(q);};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var nowISO=function(){return new Date().toISOString();};
+var fmt=function(iso){ if(!iso) return ''; var d=new Date(iso); return d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); };
+
+/* ---------- state ---------- */
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ try{ var c=JSON.parse(JSON.stringify(S)); stripPhotos(c); c.photosDropped=true; localStorage.setItem(KEY,JSON.stringify(c)); }catch(e2){} } }
+function stripPhotos(o){ if(o.vanPhoto) o.vanPhoto=''; for(var k in o.arr){ if(o.arr[k].photo) o.arr[k].photo=''; } }
+function restore(){ try{ var t=localStorage.getItem(KEY); return t?JSON.parse(t):null; }catch(e){ return null; } }
+function forget(){ try{ localStorage.removeItem(KEY); }catch(e){} }
+
+function newSession(job){
+  var hasLoad=!!(job.loading&&job.loading.end);
+  return {job:job, mode:hasLoad?'arr':'load', who:'', load:(job.loading&&job.loading.items)?job.loading.items:{}, arr:{}, t0:{load:(job.loading&&job.loading.start)||'', arr:''}, vanPhoto:'', done:null};
+}
+function validJob(j){ return j&&j.format==='crescent-check-job'&&Array.isArray(j.items)&&j.job; }
+
+/* ---------- item status ---------- */
+function loadedOf(id){ return S.load[id]||null; }
+function statusOf(it){
+  if(S.mode==='load'){ if(it.origin==='direct') return {k:'na',t:'Direct to site'}; return loadedOf(it.id)?{k:'ok',t:'Loaded'}:{k:'todo',t:'Not loaded'}; }
+  var a=S.arr[it.id];
+  if(a&&a.st==='ok') return {k:'ok',t:'Received'};
+  if(a&&a.st==='damaged') return {k:'bad',t:'Damaged'};
+  if(a&&a.st==='missing') return {k:'bad',t:'Missing'};
+  if(it.origin!=='direct'&&S.job.loading&&S.job.loading.end&&!loadedOf(it.id)) return {k:'warn',t:'Not loaded'};
+  return {k:'todo',t:'To check'};
+}
+function inScope(it){ return !(S.mode==='load'&&it.origin==='direct'); }
+function counts(){ var c={tot:0,ok:0,bad:0,warn:0,todo:0}; S.job.items.forEach(function(it){ if(!inScope(it)) return; c.tot++; var s=statusOf(it).k; if(c[s]!==undefined) c[s]++; }); return c; }
+
+/* ---------- marking ---------- */
+function mark(id,how){
+  var it=S.job.items.find(function(x){return x.id===id;}); if(!it) return 'unknown';
+  if(S.mode==='load'){ if(it.origin==='direct') return 'direct'; if(S.load[id]) return 'dup'; S.load[id]={at:nowISO(),how:how}; if(!S.t0.load) S.t0.load=nowISO(); }
+  else { var a=S.arr[id]; if(a&&a.st==='ok') return 'dup'; S.arr[id]={st:'ok',at:nowISO(),how:how,note:(a&&a.note)||'',photo:(a&&a.photo)||''}; if(!S.t0.arr) S.t0.arr=nowISO(); }
+  save(); return 'ok';
+}
+function onCode(text,how){
+  text=String(text||'').trim();
+  var t=Date.now(); if(text===lastScan.code&&t-lastScan.t<2500) return null; lastScan={code:text,t:t};
+  var it=S.job.items.find(function(x){return x.id===text;});
+  if(!it){ var p=text.split('/'); var other=p.length>=3&&p[0]==='CR1'&&p[1]!==String(S.job.job);
+    return {k:'bad',t:other?('This label is from job '+p[1]+', not '+S.job.job+'. Nothing marked.'):('Label not in this job: '+text)}; }
+  var r=mark(text,how);
+  if(r==='dup') return {k:'warn',t:'Already scanned: '+it.name+' ('+it.el+')'};
+  if(r==='direct') return {k:'warn',t:it.name+' goes direct to site. Not part of the loading.'};
+  return {k:'ok',t:(S.mode==='load'?'Loaded: ':'Received: ')+it.name+' · Elevation '+it.el};
+}
+function beep(ok){ try{ var C=window.AudioContext||window.webkitAudioContext; var a=beep.c||(beep.c=new C()); var o=a.createOscillator(), g=a.createGain(); o.frequency.value=ok?880:220; g.gain.value=.15; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+(ok?.12:.35)); }catch(e){} try{ if(navigator.vibrate) navigator.vibrate(ok?60:[80,60,80]); }catch(e){} }
+
+/* ---------- QR decoding ---------- */
+var detector=null; try{ if('BarcodeDetector' in window) detector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ detector=null; }
+function canDecode(){ return !!detector||typeof window.jsQR==='function'; }
+function camProblem(){
+  if(window.isSecureContext===false||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return 'The live camera only works when this page is opened from its https web address. Here it was opened as a file or inside another app.';
+  if(!canDecode()) return 'The QR reader did not load (it needs internet when the page opens). Reload the page with signal.';
+  return ''; }
+function diagLine(){ var cam=(window.isSecureContext===false||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)?'not available (page not opened from https)':'available';
+  return 'Live camera: '+cam+' · QR reader: '+(canDecode()?'loaded':'NOT loaded')+' · Share: '+(navigator.share?'available':'not available')+' · Works with no signal: '+(offlineReady?'ready':'not yet (open it once from its web address with signal)'); }
+function decodeFrom(src,w,h){
+  if(detector) return detector.detect(src).then(function(r){ return r&&r.length?r[0].rawValue:null; }).catch(function(){ return decodeCanvas(src,w,h); });
+  return Promise.resolve(decodeCanvas(src,w,h));
+}
+function decodeCanvas(src,w,h){ if(typeof window.jsQR!=='function') return null; var cv=$('#cv'); var sc=Math.min(1,1280/Math.max(w,h)); cv.width=Math.round(w*sc); cv.height=Math.round(h*sc);
+  var cx=cv.getContext('2d',{willReadFrequently:true}); cx.drawImage(src,0,0,cv.width,cv.height); var d=cx.getImageData(0,0,cv.width,cv.height); var r=window.jsQR(d.data,d.width,d.height); return r?r.data:null; }
+
+function openScanner(){
+  var why=camProblem(); if(why){ flash({k:'warn',t:why+' For now use "Scan from photo", type the code, or tick by hand.'}); return; }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false}).then(function(st){
+    stream=st; var v=$('#vid'); v.srcObject=st; $('#scan').style.display='flex'; scanning=true; $('#scanMsg').hidden=true; updScanTop(); v.play().then(loop,loop);
+  }).catch(function(){ flash({k:'warn',t:'Camera not allowed. Allow the camera for this page, or use "Scan from photo".'}); });
+}
+function updScanTop(){ var c=counts(); $('#scanTop').textContent=(S.mode==='load'?'LOADING':'ARRIVAL')+' · '+c.ok+' of '+c.tot+' · point at a label QR'; }
+function loop(){ if(!scanning) return; var v=$('#vid');
+  if(v.readyState<2||!v.videoWidth){ setTimeout(loop,150); return; }
+  decodeFrom(v,v.videoWidth,v.videoHeight).then(function(txt){ if(txt){ var r=onCode(txt,'scan'); if(r){ var m=$('#scanMsg'); m.hidden=false; m.className='msg '+r.k; m.textContent=r.t; beep(r.k==='ok'); updScanTop(); } } setTimeout(loop,180); });
+}
+function closeScanner(){ scanning=false; if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; } $('#scan').style.display='none'; render(); }
+
+/* ---------- photos ---------- */
+function readImage(file,max,q){ return new Promise(function(res,rej){ var img=new Image(); var url=URL.createObjectURL(file);
+  img.onload=function(){ var sc=Math.min(1,max/Math.max(img.width,img.height)); var c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); res({data:c.toDataURL('image/jpeg',q),img:img,w:img.width,h:img.height}); };
+  img.onerror=function(){ URL.revokeObjectURL(url); rej(); }; img.src=url; }); }
+
+/* ---------- hashing ---------- */
+function hashText(t){ try{ if(window.crypto&&crypto.subtle&&window.TextEncoder){ return crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)).then(function(b){ return 'sha256:'+Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2);}).join(''); }); } }catch(e){}
+  var h=2166136261; for(var i=0;i<t.length;i++){ h^=t.charCodeAt(i); h=(h*16777619)>>>0; } return Promise.resolve('fnv1a:'+h.toString(16)); }
+
+/* ---------- finish / export ---------- */
+function buildOutputs(){
+  var isLoad=S.mode==='load', end=nowISO(), job=JSON.parse(JSON.stringify(S.job)), name, data;
+  if(isLoad){ job.loading={by:S.who,start:S.t0.load||end,end:end,items:S.load,vanPhoto:S.vanPhoto||'',device:navigator.userAgent}; delete job.check; data=job; name=job.job+'_job_LOADED.txt'; }
+  else { var res={}; job.items.forEach(function(it){ var s=statusOf(it), a=S.arr[it.id]||{}; res[it.id]={status:(s.t==='To check'?'Not checked':s.t),at:a.at||'',how:a.how||'',note:a.note||'',photo:a.photo||''}; });
+    data={format:'crescent-check-return',v:1,job:job.job,client:job.client||'',made:job.made||'',loading:job.loading?{by:job.loading.by,start:job.loading.start,end:job.loading.end}:null,arrival:{by:S.who,start:S.t0.arr||end,end:end,device:navigator.userAgent},results:res}; name=job.job+'_delivery_return.txt'; }
+  var body=JSON.stringify(data);
+  return hashText(body).then(function(h){ data.check=h; var txt=JSON.stringify(data,null,1);
+    return {isLoad:isLoad,end:end,dataName:name,dataText:txt,repName:job.job+(isLoad?'_loading_report.html':'_delivery_report.html'),repText:reportHTML(isLoad,end,h)}; });
+}
+function reportHTML(isLoad,end,h){
+  var j=S.job, c=counts(), rows='', prob='', lastEl='';
+  j.items.forEach(function(it){ if(!inScope(it)) return; var s=statusOf(it), a=isLoad?(S.load[it.id]||{}):(S.arr[it.id]||{});
+    if(it.el!==lastEl){ rows+='<tr><th colspan="5" style="background:#e9eef4;text-align:left">Elevation '+esc(it.el)+'</th></tr>'; lastEl=it.el; }
+    var col=s.k==='ok'?'#1f7a4d':(s.k==='bad'?'#c2101b':(s.k==='warn'?'#8a5a00':'#5b6878'));
+    rows+='<tr><td style="color:'+col+';font-weight:700">'+esc(s.t)+'</td><td>'+esc(it.name)+'<br><small>'+esc(it.size||'')+(it.info?' · '+esc(it.info):'')+'</small></td><td><small>'+esc(it.id)+'</small></td><td><small>'+esc(fmt(a.at))+'</small></td><td><small>'+esc(a.how==='scan'?'scanned':(a.how==='photo'?'scanned (photo)':(a.how?'by hand':'')))+(it.origin==='direct'?' · direct to site':'')+'</small></td></tr>';
+    if(!isLoad&&(s.k==='bad'||s.k==='warn'||(s.k==='todo'))){ prob+='<div style="border:1px solid #d6dee8;border-left:5px solid '+col+';padding:8px;margin:6px 0"><b>'+esc(s.t==='To check'?'Not checked':s.t)+'</b> · Elevation '+esc(it.el)+' · '+esc(it.name)+' <small>('+esc(it.id)+')</small>'+(a.note?'<br>'+esc(a.note):'')+(a.photo?'<br><img src="'+a.photo+'" style="max-width:420px;width:100%;margin-top:6px">':'')+'</div>'; } });
+  var st=isLoad?S.t0.load:S.t0.arr;
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(j.job)+(isLoad?' loading report':' delivery report')+'</title><style>body{font:14px/1.4 Arial,sans-serif;margin:16px;color:#14202c}table{border-collapse:collapse;width:100%}td,th{border:1px solid #d6dee8;padding:5px 7px;vertical-align:top}h1{font-size:20px;margin:0 0 4px;border-top:4px solid #e30613;padding-top:8px}small{color:#5b6878}</style></head><body>'
+   +'<h1>'+(isLoad?'LOADING REPORT':'DELIVERY CHECK REPORT')+' · '+esc(j.job)+' '+esc(j.client||'')+'</h1>'
+   +'<p><b>'+(isLoad?'Loaded by':'Checked by')+':</b> '+esc(S.who||'(no name)')+'<br><b>Started:</b> '+esc(fmt(st||end))+' &nbsp; <b>Finished:</b> '+esc(fmt(end))
+   +(!isLoad&&j.loading&&j.loading.end?'<br><b>Loaded at the workshop:</b> '+esc(fmt(j.loading.end))+' by '+esc(j.loading.by||''):'')
+   +'<br><b>'+(isLoad?'Loaded':'Received')+':</b> '+c.ok+' of '+c.tot+(isLoad?'':' &nbsp; <b>Missing / damaged:</b> '+c.bad+' &nbsp; <b>Not loaded:</b> '+c.warn+' &nbsp; <b>Not checked:</b> '+c.todo)+(isLoad&&c.todo?' &nbsp; <b>NOT loaded on this trip:</b> '+c.todo:'')+'</p>'
+   +(isLoad&&S.vanPhoto?'<p><b>Loaded van:</b><br><img src="'+S.vanPhoto+'" style="max-width:520px;width:100%"></p>':'')
+   +(prob?'<h2 style="font-size:16px">Problems</h2>'+prob:'')
+   +'<h2 style="font-size:16px">All items</h2><table><tr><th>Status</th><th>Item</th><th>Label</th><th>Time</th><th>How</th></tr>'+rows+'</table>'
+   +'<p><small>Times come from the phone clock. Check code of the data file: '+esc(h)+'<br>Crescent Load &amp; Delivery Check v0.3</small></p></body></html>';
+}
+function fileOf(name,text,type){ try{ return new File([text],name,{type:type}); }catch(e){ return null; } }
+function download(name,text,type){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:type})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500); }
+function share(o){ var fs=[fileOf(o.repName,o.repText,'text/html'),fileOf(o.dataName,o.dataText,'text/plain')].filter(Boolean);
+  if(fs.length&&navigator.canShare&&navigator.canShare({files:fs})){ return navigator.share({files:fs,title:S.job.job+(o.isLoad?' loading':' delivery check')}).then(function(){return true;}).catch(function(){return false;}); }
+  return Promise.resolve(null); }
+
+/* ---------- UI ---------- */
+var flashMsg=null;
+function flash(m){ flashMsg=m; render(); }
+function render(){
+  var A=$('#app');
+  if(!S){ $('#hsub').textContent='v0.3 test · no job loaded'; var old=restore();
+    A.innerHTML='<div class="card"><h2>Start</h2><p class="small">Load the job file you received (for example <b>1611F_job.txt</b>). At the workshop it starts the loading check. A file that already has the loading in it starts the arrival check.</p>'
+      +'<div class="row"><button class="pri grow" id="pick">Load job file</button></div>'+(old&&old.job?'<div class="row" style="margin-top:8px"><button class="grow" id="resume">Continue '+esc(old.job.job)+' ('+(old.mode==='load'?'loading':'arrival')+')</button></div>':'')
+      +(flashMsg?'<p class="msg '+flashMsg.k+'" style="margin-top:10px">'+esc(flashMsg.t)+'</p>':'')+'<p class="small" style="margin:10px 0 0">'+esc(diagLine())+'</p></div>';
+    $('#pick').onclick=function(){ $('#jobFile').click(); }; var rs=$('#resume'); if(rs) rs.onclick=function(){ S=old; flashMsg=S.photosDropped?{k:'warn',t:'Photos taken before were not kept by the phone. Take them again.'}:null; render(); }; return; }
+  if(S.done){ renderDone(A); return; }
+  var c=counts(), isLoad=S.mode==='load';
+  $('#hsub').textContent=S.job.job+' · '+(S.job.client||'')+' · '+(isLoad?'LOADING (workshop)':'ARRIVAL (site)');
+  var h='<div class="card"><div class="seg"><button data-m="load" class="'+(isLoad?'on':'')+'">Loading</button><button data-m="arr" class="'+(!isLoad?'on':'')+'">Arrival</button></div>'
+    +'<div style="margin-top:10px"><input type="text" id="who" placeholder="Your name" value="'+esc(S.who)+'"></div>'
+    +'<div style="margin-top:10px" class="bar"><i style="width:'+(c.tot?Math.round(100*c.ok/c.tot):0)+'%"></i></div>'
+    +'<div class="stats" style="margin-top:8px"><span class="pill ok">'+c.ok+' of '+c.tot+' '+(isLoad?'loaded':'received')+'</span>'+(c.bad?'<span class="pill bad">'+c.bad+' missing / damaged</span>':'')+(c.warn?'<span class="pill warn">'+c.warn+' not loaded</span>':'')+'<span class="pill">'+c.todo+' to do</span></div>'
+    +(!isLoad&&!(S.job.loading&&S.job.loading.end)?'<p class="msg warn" style="margin-top:10px">This file has no loading check from the workshop. Missing items cannot be told apart from items never loaded.</p>':'')
+    +(flashMsg?'<p class="msg '+flashMsg.k+'" style="margin-top:10px">'+esc(flashMsg.t)+'</p>':'')
+    +'<div class="row" style="margin-top:10px"><button class="pri grow" id="bScan">Scan labels</button><button class="grow" id="bShot">Scan from photo</button></div>'
+    +'<div class="row" style="margin-top:8px"><input type="text" id="code" class="grow" style="width:auto" placeholder="or type the label code" autocapitalize="characters"><button id="bCode">OK</button></div></div>';
+  h+='<div class="card"><div class="seg"><button data-f="all" class="'+(filt==='all'?'on':'')+'">All</button><button data-f="todo" class="'+(filt==='todo'?'on':'')+'">To do</button><button data-f="prob" class="'+(filt==='prob'?'on':'')+'">Problems</button></div>';
+  var last='', n=0;
+  S.job.items.forEach(function(it){ if(!inScope(it)) return; var s=statusOf(it);
+    if(filt==='todo'&&s.k!=='todo') return; if(filt==='prob'&&s.k!=='bad'&&s.k!=='warn') return; n++;
+    if(it.el!==last){ h+='<div class="el">Elevation '+esc(it.el)+'</div>'; last=it.el; }
+    var a=S.arr[it.id]||{}, cls=s.k==='ok'?'ok':(s.k==='bad'?'bad':(s.k==='warn'?'warn':''));
+    h+='<div class="it '+cls+'" data-id="'+esc(it.id)+'"><div class="top"><div class="grow"><div class="nm">'+esc(it.name)+'</div><div class="sz">'+esc(it.size||'')+(it.info?' · '+esc(it.info):'')+(it.origin==='hand'?' · no label':'')+(it.origin==='direct'?' · direct to site':'')+'</div><div class="code">'+esc(it.id)+'</div></div><span class="pill '+(cls||'')+'">'+esc(s.t)+'</span></div>';
+    if(openId===it.id){ h+='<div class="act">';
+      if(isLoad){ h+='<div class="row">'+(loadedOf(it.id)?'<button class="sm badb" data-a="unload">Undo loaded</button>':'<button class="sm okb" data-a="hand">Loaded (by hand)</button>')+'</div>'; }
+      else { h+='<div class="row"><button class="sm okb" data-a="hand">Received</button><button class="sm badb" data-a="missing">Missing</button><button class="sm badb" data-a="damaged">Damaged</button>'+(a.st?'<button class="sm" data-a="clear">Clear</button>':'')+'</div>'
+        +(a.st==='damaged'||a.st==='missing'?'<textarea rows="2" data-note placeholder="What is wrong?">'+esc(a.note||'')+'</textarea><div class="row"><button class="sm" data-a="photo">'+(a.photo?'Retake photo':'Take photo')+'</button>'+(a.st==='damaged'&&!a.photo?'<span class="small">A photo is needed for damage.</span>':'')+'</div>'+(a.photo?'<img src="'+a.photo+'" alt="photo of the problem">':''):''); }
+      h+='</div>'; }
+    h+='</div>'; });
+  if(!n) h+='<p class="small" style="margin-top:12px">Nothing in this list.</p>';
+  h+='</div><div class="card">'+(isLoad?'<div class="row" style="margin-bottom:8px"><button class="grow" id="bVan">'+(S.vanPhoto?'Retake photo of the loaded van':'Photo of the loaded van')+'</button></div>'+(S.vanPhoto?'<img src="'+S.vanPhoto+'" alt="loaded van" style="max-width:100%;border-radius:8px;margin-bottom:8px">':''):'')
+    +'<button class="pri" style="width:100%" id="bFin">'+(isLoad?'Finish loading':'Finish arrival check')+'</button><p class="small" id="finNote" style="margin:8px 0 0"></p>'
+    +'<div class="row" style="margin-top:10px"><button class="sm" id="bOther">Load another job file</button></div></div>';
+  A.innerHTML=h; flashMsg=null;
+  A.querySelectorAll('[data-m]').forEach(function(b){ b.onclick=function(){ S.mode=b.dataset.m; openId=null; save(); render(); }; });
+  A.querySelectorAll('[data-f]').forEach(function(b){ b.onclick=function(){ filt=b.dataset.f; render(); }; });
+  $('#who').onchange=function(e){ S.who=e.target.value.trim(); save(); };
+  $('#bScan').onclick=openScanner;
+  $('#bShot').onclick=function(){ shotFor={t:'scan'}; $('#shot').click(); };
+  $('#bCode').onclick=function(){ var v=$('#code').value.trim().toUpperCase(); if(!v) return; lastScan={code:'',t:0}; var r=onCode(v,'hand'); if(r){ beep(r.k==='ok'); flash(r); } };
+  var bv=$('#bVan'); if(bv) bv.onclick=function(){ shotFor={t:'van'}; $('#shot').click(); };
+  $('#bOther').onclick=function(){ $('#jobFile').click(); };
+  $('#bFin').onclick=finish;
+  A.querySelectorAll('.it').forEach(function(d){ var id=d.dataset.id;
+    d.querySelector('.top').onclick=function(){ openId=openId===id?null:id; render(); };
+    d.querySelectorAll('[data-a]').forEach(function(b){ b.onclick=function(){ act(id,b.dataset.a); }; });
+    var nt=d.querySelector('[data-note]'); if(nt) nt.onchange=function(){ if(S.arr[id]){ S.arr[id].note=nt.value.trim(); save(); } }; });
+}
+function act(id,a){
+  if(a==='hand'){ if(S.mode==='arr'&&S.arr[id]) delete S.arr[id]; mark(id,'hand'); openId=null; }
+  else if(a==='unload'){ delete S.load[id]; }
+  else if(a==='clear'){ delete S.arr[id]; }
+  else if(a==='missing'||a==='damaged'){ var o=S.arr[id]||{}; S.arr[id]={st:a,at:nowISO(),how:'hand',note:o.note||'',photo:o.photo||''}; if(!S.t0.arr) S.t0.arr=nowISO(); }
+  else if(a==='photo'){ shotFor={t:'item',id:id}; $('#shot').click(); return; }
+  save(); render();
+}
+function finish(){
+  var c=counts(), isLoad=S.mode==='load', note=$('#finNote');
+  if(!S.who){ note.textContent='Type your name at the top first.'; note.style.color='var(--bad)'; return; }
+  if(!isLoad){ var nd=S.job.items.filter(function(it){ var a=S.arr[it.id]; return a&&a.st==='damaged'&&!a.photo; }); if(nd.length){ note.textContent=nd.length+' damaged item(s) have no photo yet. Open them (Problems) and take the photo.'; note.style.color='var(--bad)'; filt='prob'; return; } }
+  if(c.todo&&!finish.ok){ finish.ok=true; note.textContent=c.todo+' item(s) are not '+(isLoad?'loaded':'checked')+'. They will be reported as '+(isLoad?'"not loaded on this trip"':'"not checked"')+'. Press Finish again to confirm.'; note.style.color='var(--warn)'; return; }
+  finish.ok=false; note.textContent='Preparing the files…'; note.style.color='';
+  buildOutputs().then(function(o){ S.done=o; save(); render(); });
+}
+function renderDone(A){
+  var o=S.done, c=counts();
+  $('#hsub').textContent=S.job.job+' · '+(o.isLoad?'loading finished':'arrival check finished');
+  A.innerHTML='<div class="card"><h2>'+(o.isLoad?'Loading finished':'Arrival check finished')+'</h2><p>'+c.ok+' of '+c.tot+' '+(o.isLoad?'loaded':'received')+(c.bad?' · '+c.bad+' missing / damaged':'')+(c.warn?' · '+c.warn+' not loaded':'')+(c.todo?' · '+c.todo+(o.isLoad?' not loaded on this trip':' not checked'):'')+'<br><span class="small">Finished '+esc(fmt(o.end))+' by '+esc(S.who)+'</span></p>'
+    +'<p class="small">'+(o.isLoad?'Send both files to the office. Send <b>'+esc(o.dataName)+'</b> to the fitter: it is the job file with the loading inside.':'Send both files back to Crescent now.')+'</p>'
+    +'<div class="row"><button class="pri grow" id="bShare">Send (WhatsApp / share)</button></div>'
+    +'<div class="row" style="margin-top:8px"><button class="grow" id="dRep">Save report</button><button class="grow" id="dDat">Save data file</button></div>'
+    +'<p class="small" id="shNote" style="margin:8px 0 0"></p>'
+    +'<div class="row" style="margin-top:14px"><button class="sm" id="bBack">Back to the list</button><button class="sm" id="bNew">Start another job</button></div></div>';
+  $('#bShare').onclick=function(){ share(o).then(function(r){ $('#shNote').textContent=r===null?'Sharing files is not available on this device. Use the two Save buttons and send the files by hand.':(r?'Share opened. Check the message was sent.':'Share cancelled.'); }); };
+  $('#dRep').onclick=function(){ download(o.repName,o.repText,'text/html'); };
+  $('#dDat').onclick=function(){ download(o.dataName,o.dataText,'text/plain'); };
+  $('#bBack').onclick=function(){ S.done=null; save(); render(); };
+  $('#bNew').onclick=function(){ S=null; forget(); render(); };
+}
+
+/* ---------- inputs ---------- */
+$('#jobFile').onchange=function(e){ var f=e.target.files[0]; e.target.value=''; if(!f) return; var r=new FileReader();
+  r.onload=function(){ var j=null; try{ j=JSON.parse(r.result); }catch(x){} if(!validJob(j)){ flash({k:'bad',t:'This is not a Crescent job file.'}); return; } S=newSession(j); openId=null; filt='all'; save(); flashMsg={k:'ok',t:'Job '+j.job+' loaded: '+j.items.length+' items.'}; render(); };
+  r.readAsText(f); };
+$('#shot').onchange=function(e){ var f=e.target.files[0]; e.target.value=''; var w=shotFor; shotFor=null; if(!f||!w||!S) return;
+  if(w.t==='scan'){ readImage(f,1600,.8).then(function(im){ return decodeFrom(im.img,im.w,im.h); }).then(function(txt){ if(!txt){ flash({k:'warn',t:'No QR found in the photo. Get closer and keep the label flat.'}); return; } lastScan={code:'',t:0}; var r=onCode(txt,'photo'); beep(r&&r.k==='ok'); flash(r); }).catch(function(){ flash({k:'warn',t:'Could not read the photo.'}); }); }
+  else readImage(f,1100,.6).then(function(im){ if(w.t==='van') S.vanPhoto=im.data; else if(S.arr[w.id]) S.arr[w.id].photo=im.data; save(); render(); }).catch(function(){ flash({k:'warn',t:'Could not read the photo.'}); }); };
+$('#scanClose').onclick=closeScanner;
+try{ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+  navigator.serviceWorker.register('sw.js').then(function(){ return navigator.serviceWorker.ready; }).then(function(){ offlineReady=true; if(!S) render(); }).catch(function(){});
+} }catch(e){}
+render();
+</script>
+</body>
+</html>
