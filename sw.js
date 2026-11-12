@@ -1,7 +1,7 @@
 /* Crescent Load & Delivery Check - keeps the app on the phone so it opens with no signal */
-var CACHE='crescent-check-v0.3';
+var CACHE='crescent-check-v0.3.1';
 var OWN=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-512.png'];
-var LIB='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+var LIB='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
 self.addEventListener('install',function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){
     return c.addAll(OWN).then(function(){ return c.add(LIB).catch(function(){}); });
